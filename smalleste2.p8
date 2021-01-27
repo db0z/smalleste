@@ -456,9 +456,18 @@ function goto_level(index)
   end
 
   -- load into ram
-  local function vget(x,y) return peek(0x4300+x+y*level.width) end
-  local function vset(x,y,v) return poke(0x4300+x+y*level.width,v) end
-  px9_decomp(0,0,0x1000+level.offset,vget,vset)
+  if not level.map then
+ 	  local m={}
+ 	  for i=0,level.width-1 do
+ 		  m[i]={}
+ 	  end
+ 	
+    local function vget(x,y) return m[x][y] end
+    local function vset(x,y,v) m[x][y]=v end
+    px9_decomp(0,0,0x1000+level.offset,vget,vset)
+  		
+  		level.map=m
+  end  
 
   -- start music
   if current_music~=level.music and level.music then
@@ -482,21 +491,32 @@ function restart_level()
   0,0,0,0,
   {},
   0,level_index>2,0
-
-  for i=0,level.width-1 do
-    for j=0,level.height-1 do
-      local t=types[tile_at(i,j)]
-      if t and not collected[id(i,j)] and (not level_checkpoint or t~=player) then
-        create(t,i*8,j*8)
+  
+  if not level.objs then
+    level.objs={}
+    for i=0,level.width-1 do
+      for j=0,level.height-1 do
+        local t=types[tile_at(i,j)]
+        if t then
+          add(level.objs,{t,i*8,j*8,id(i,j)})
+        end
       end
     end
+  end
+  for rec in all(level.objs) do
+  	 if not collected[rec[4]]
+  	 and (not level_checkpoint
+  	      or rec[1]~=player) then
+  	   create(rec[1],rec[2],rec[3])
+  	 end
   end
 end
 
 -- gets the tile at the given location from the loaded level
 function tile_at(x,y)
   if (x<0 or y<0 or x>=level.width or y>=level.height) then return 0 end
-  return peek(0x4300+x+y*level.width)
+--  return peek(0x4300+x+y*level.width)
+  return level.map[x][y]
 end
 
 input_x,input_jump_pressed,input_grapple_pressed,axis_x_value=0,0,0,0
